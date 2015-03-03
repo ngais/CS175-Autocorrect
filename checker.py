@@ -1,3 +1,7 @@
+'''
+Course: CS175
+Team: Dianna Vu , Nitish Sachar, Shela Ngai
+'''
 import re, collections
 
 def words(text): return re.findall('[a-z]+', text.lower())
@@ -8,7 +12,7 @@ def train(features):
         model[f] += 1
     return model
 
-NWORDS = train(words(file('wikipedia.dat').read()))
+NWORDS = train(words(file('big.txt').read()))
 
 alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
@@ -28,3 +32,4 @@ def known(words): return set(w for w in words if w in NWORDS)
 def correct(word):
     candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
     return max(candidates, key=NWORDS.get)
+
