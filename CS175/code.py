@@ -6,6 +6,7 @@ import sys
 import re, collections
 # https://github.com/ahupp/bktree/blob/master/bktree.py
 from bk import *
+import pdist
 
 def words(text): return re.findall('[a-z]+', text.lower())
 
@@ -15,12 +16,15 @@ def train(features):
         model[f] += 1
     return model
 
-#NWORDS = train(words(file('big.txt').read()))
+NWORDS = train(words(file('big.txt').read()))
+#od = collections.OrderedDict(sorted(NWORDS.items()))
+#for i, v in enumerate(NWORDS):
+#    print i, v
 
 alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
-
-#trie = BKTree(levenshtein, NWORDS)
+trie = BKTree(levenshtein, NWORDS)
+#print trie.query('thisisatest', 2)
 
 def edits1(word):
    splits     = [(word[:i], word[i:]) for i in range(len(word) + 1)]
@@ -29,18 +33,18 @@ def edits1(word):
    replaces   = [a + c + b[1:] for a, b in splits for c in alphabet if b]
    inserts    = [a + c + b     for a, b in splits for c in alphabet]
    return set(deletes + transposes + replaces + inserts)
-   
+
 def edits1b(word, distance):
     return set(i[1] for i in trie.query(word, distance))
-    
+
 def known_edits2(word):
     return set(e2 for e1 in edits1(word) for e2 in edits1(e1) if e2 in NWORDS)
-    
+
 def known_edits2b(word):
     return set(e2 for e1 in edits1b(word,2) for e2 in edits1b(e1,2) if e2 in NWORDS)
 
 def known(words): return set(w for w in words if w in NWORDS)
-    
+
 def correct2(word):
     candidates = known([word]) or known(edits1b(word,2)) or known_edits2b(word) or [word]
     return max(candidates, key=NWORDS.get)
@@ -48,13 +52,48 @@ def correct2(word):
 def correct(word):
     candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
     return max(candidates, key=NWORDS.get)
-    
+
+#Segmentation
+N = 1024908267229
+Pw = Pdist(datafile('count_1w.txt'), N, avoid_long_words)
+
+def memo(f):
+    "Memoize function f."
+    table = {}
+    def fmemo(*args):
+        if args not in table:
+            table[args] = f(*args)
+        return table[args]
+    fmemo.memo = table
+    return fmemo
+
+def product(nums):
+    "Return the product of a sequence of numbers."
+    return reduce(operator.mul, nums, 1)
+
+@memo
+def segment (text):
+  "Return a list of words that is the best segmentation of text."
+  if not text: return []
+  candidates = ([first]+segment(rem) for first,rem in splits(text))
+  return max(candidates, key=Pwords)
+
+def splits (text, L=20):
+  "Return a list of all possible (first, rem) pairs, len(first)<=L."
+  return [(text[:i+1], text[i+1:])
+    for i in range(min(len(text), L))]
+
+def Pwords(words):
+  "The Naive Bayes probability of a sequence of words."
+  return product(Pw(w) for w in words)
+
+"""
 def spelltest(tests, bias=None, verbose=False):
     import time
     n, bad, unknown, start = 0, 0, 0, time.clock()
     if bias:
         for target in tests: NWORDS[target] += bias
-    for target,wrongs in tests.items():
+    for target, wrongs in tests.items():
         for wrong in wrongs.split():
             n += 1
             w = correct2(wrong)
@@ -64,8 +103,9 @@ def spelltest(tests, bias=None, verbose=False):
                 if verbose:
                     print 'correct(%r) => %r (%d); expected %r (%d)' % (
                         wrong, w, NWORDS[w], target, NWORDS[target])
-    return dict(bad=bad, n=n, bias=bias, pct=int(100. - 100.*bad/n), 
+    return dict(bad=bad, n=n, bias=bias, pct=int(100. - 100.*bad/n),
                 unknown=unknown, secs=int(time.clock()-start) )
+"""
 
 tests1 = { 'access': 'acess', 'accessing': 'accesing', 'accommodation':
 'accomodation acommodation acomodation', 'account': 'acount', 'address':
@@ -74,15 +114,15 @@ tests1 = { 'access': 'acess', 'accessing': 'accesing', 'accommodation':
 'aunt': 'annt anut arnt', 'auxiliary': 'auxillary', 'available': 'avaible',
 'awful': 'awfall afful', 'basically': 'basicaly', 'beginning': 'begining',
 'benefit': 'benifit', 'benefits': 'benifits', 'between': 'beetween', 'bicycle':
-'bicycal bycicle bycycle', 'biscuits': 
-'biscits biscutes biscuts bisquits buiscits buiscuts', 'built': 'biult', 
+'bicycal bycicle bycycle', 'biscuits':
+'biscits biscutes biscuts bisquits buiscits buiscuts', 'built': 'biult',
 'cake': 'cak', 'career': 'carrer',
 'cemetery': 'cemetary semetary', 'centrally': 'centraly', 'certain': 'cirtain',
 'challenges': 'chalenges chalenges', 'chapter': 'chaper chaphter chaptur',
 'choice': 'choise', 'choosing': 'chosing', 'clerical': 'clearical',
 'committee': 'comittee', 'compare': 'compair', 'completely': 'completly',
 'consider': 'concider', 'considerable': 'conciderable', 'contented':
-'contenpted contende contended contentid', 'curtains': 
+'contenpted contende contended contentid', 'curtains':
 'cartains certans courtens cuaritains curtans curtians curtions', 'decide': 'descide', 'decided':
 'descided', 'definitely': 'definately difinately', 'definition': 'defenition',
 'definitions': 'defenitions', 'description': 'discription', 'desiccate':
@@ -91,39 +131,39 @@ tests1 = { 'access': 'acess', 'accessing': 'accesing', 'accommodation':
 'embarrass': 'embaras embarass', 'establishing': 'astablishing establising',
 'experience': 'experance experiance', 'experiences': 'experances', 'extended':
 'extented', 'extremely': 'extreamly', 'fails': 'failes', 'families': 'familes',
-'february': 'febuary', 'further': 'futher', 'gallery': 'galery gallary gallerry gallrey', 
+'february': 'febuary', 'further': 'futher', 'gallery': 'galery gallary gallerry gallrey',
 'hierarchal': 'hierachial', 'hierarchy': 'hierchy', 'inconvenient':
 'inconvienient inconvient inconvinient', 'independent': 'independant independant',
 'initial': 'intial', 'initials': 'inetials inistals initails initals intials',
-'juice': 'guic juce jucie juise juse', 'latest': 'lates latets latiest latist', 
+'juice': 'guic juce jucie juise juse', 'latest': 'lates latets latiest latist',
 'laugh': 'lagh lauf laught lugh', 'level': 'leval',
 'levels': 'levals', 'liaison': 'liaision liason', 'lieu': 'liew', 'literature':
-'litriture', 'loans': 'lones', 'locally': 'localy', 'magnificent': 
+'litriture', 'loans': 'lones', 'locally': 'localy', 'magnificent':
 'magnificnet magificent magnifcent magnifecent magnifiscant magnifisent magnificant',
 'management': 'managment', 'meant': 'ment', 'minuscule': 'miniscule',
-'minutes': 'muinets', 'monitoring': 'monitering', 'necessary': 
+'minutes': 'muinets', 'monitoring': 'monitering', 'necessary':
 'neccesary necesary neccesary necassary necassery neccasary', 'occurrence':
-'occurence occurence', 'often': 'ofen offen offten ofton', 'opposite': 
-'opisite oppasite oppesite oppisit oppisite opposit oppossite oppossitte', 'parallel': 
+'occurence occurence', 'often': 'ofen offen offten ofton', 'opposite':
+'opisite oppasite oppesite oppisit oppisite opposit oppossite oppossitte', 'parallel':
 'paralel paralell parrallel parralell parrallell', 'particular': 'particulaur',
 'perhaps': 'perhapse', 'personnel': 'personnell', 'planned': 'planed', 'poem':
-'poame', 'poems': 'poims pomes', 'poetry': 'poartry poertry poetre poety powetry', 
-'position': 'possition', 'possible': 'possable', 'pretend': 
+'poame', 'poems': 'poims pomes', 'poetry': 'poartry poertry poetre poety powetry',
+'position': 'possition', 'possible': 'possable', 'pretend':
 'pertend protend prtend pritend', 'problem': 'problam proble promblem proplen',
 'pronunciation': 'pronounciation', 'purple': 'perple perpul poarple',
 'questionnaire': 'questionaire', 'really': 'realy relley relly', 'receipt':
 'receit receite reciet recipt', 'receive': 'recieve', 'refreshment':
 'reafreshment refreshmant refresment refressmunt', 'remember': 'rember remeber rememmer rermember',
-'remind': 'remine remined', 'scarcely': 'scarcly scarecly scarely scarsely', 
+'remind': 'remine remined', 'scarcely': 'scarcly scarecly scarely scarsely',
 'scissors': 'scisors sissors', 'separate': 'seperate',
 'singular': 'singulaur', 'someone': 'somone', 'sources': 'sorces', 'southern':
-'southen', 'special': 'speaical specail specal speical', 'splendid': 
-'spledid splended splened splended', 'standardizing': 'stanerdizing', 'stomach': 
+'southen', 'special': 'speaical specail specal speical', 'splendid':
+'spledid splended splened splended', 'standardizing': 'stanerdizing', 'stomach':
 'stomac stomache stomec stumache', 'supersede': 'supercede superceed', 'there': 'ther',
 'totally': 'totaly', 'transferred': 'transfred', 'transportability':
-'transportibility', 'triangular': 'triangulaur', 'understand': 'undersand undistand', 
+'transportibility', 'triangular': 'triangulaur', 'understand': 'undersand undistand',
 'unexpected': 'unexpcted unexpeted unexspected', 'unfortunately':
-'unfortunatly', 'unique': 'uneque', 'useful': 'usefull', 'valuable': 'valubale valuble', 
+'unfortunatly', 'unique': 'uneque', 'useful': 'usefull', 'valuable': 'valubale valuble',
 'variable': 'varable', 'variant': 'vairiant', 'various': 'vairious',
 'visited': 'fisited viseted vistid vistied', 'visitors': 'vistors',
 'voluntary': 'volantry', 'voting': 'voteing', 'wanted': 'wantid wonted',
@@ -258,6 +298,5 @@ tests2 = {'forbidden': 'forbiden', 'decisions': 'deciscions descisions',
 'biulding', 'required': 'reequired', 'necessitates': 'nessisitates',
 'together': 'togehter', 'profits': 'proffits'}
 
-if __name__ == '__main__':
-    print spelltest(tests1)
-
+#if __name__ == '__main__':
+#    print spelltest(tests1)

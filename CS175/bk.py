@@ -9,7 +9,9 @@ Licensed under the PSF license: http://www.python.org/psf/license/
 - Adam Hupp <adam@hupp.org>
 """
 from itertools import imap, ifilter
+from datetime import datetime
 import re, collections
+
 
 
 class BKTree:
@@ -17,15 +19,15 @@ class BKTree:
         """
         Create a new BK-tree from the given distance function and
         words.
-        
+
         Arguments:
         distfn: a binary function that returns the distance between
         two words.  Return value is a non-negative integer.  the
         distance function must be a metric space.
-        
+
         words: an iterable.  produces values that can be passed to
         distfn
-        
+
         """
         self.distfn = distfn
 
@@ -47,16 +49,15 @@ class BKTree:
     def query(self, word, n):
         """
         Return all words in the tree that are within a distance of `n'
-        from `word`.  
+        from `word`.
         Arguments:
-        
+
         word: a word to query on
         n: a non-negative integer that specifies the allowed distance
-        from the query word.  
-        
+        from the query word.
+
         Return value is a list of tuples (distance, word), sorted in
         ascending order of distance.
-        
         """
         def rec(parent):
             pword, children = parent
@@ -64,7 +65,7 @@ class BKTree:
             results = []
             if d <= n:
                 results.append( (d, pword) )
-                
+
             for i in range(d-n, d+n+1):
                 child = children.get(i)
                 if child is not None:
@@ -73,7 +74,7 @@ class BKTree:
 
         # sort by distance
         return sorted(rec(self.tree))
-    
+
 
 
 def brute_query(word, words, distfn, n):
@@ -84,11 +85,9 @@ def brute_query(word, words, distfn, n):
     distfn: a binary function that returns the distance between a
     `word' and an item in `words'.
     n: an integer that specifies the distance of a matching word
-    
     """
     return [i for i in words
             if distfn(i, word) <= n]
-
 
 def maxdepth(tree, count=0):
     _, children = t
@@ -96,19 +95,6 @@ def maxdepth(tree, count=0):
         return max(maxdepth(i, c+1) for i in children.values())
     else:
         return c
-        
-
-def words(text): return re.findall('[a-z]+', text.lower())
-        
-def train(features):
-    model = collections.defaultdict(lambda: 1)
-    for f in features:
-        model[f] += 1
-    return model
-
-NWORDS = train(words(file('big.txt').read()))
-#NWORDS2 = train(words(file('words.txt').read()))
-#NWORDS.update(NWORDS2)
 
 # http://en.wikibooks.org/wiki/Algorithm_implementation/Strings/Levenshtein_distance#Python
 def levenshtein(s, t):
@@ -133,20 +119,9 @@ def dict_words(dictfile="/usr/share/dict/american-english"):
                    imap(str.strip,
                         open(dictfile)))
 
-
 def timeof(fn, *args):
     import time
     t = time.time()
     res = fn(*args)
     print "time: ", (time.time() - t)
     return res
-
-tree = BKTree(levenshtein, NWORDS)
-#                  dict_words('/usr/share/dict/american-english-large'))
-
-#    print tree.query("ricoshet", 2)
-    
-#     dist = 1
-#     for i in ["book", "cat", "backlash", "scandal"]:
-#         w = set(tree.query(i, dist)) - set([i]) 
-#         print "words within %d of %s: %r" % (dist, i, w)
