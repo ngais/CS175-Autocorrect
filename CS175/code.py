@@ -7,6 +7,7 @@ import re, collections
 # https://github.com/ahupp/bktree/blob/master/bktree.py
 from bk import *
 import pdist
+import operator
 
 def words(text): return re.findall('[a-z]+', text.lower())
 
@@ -34,8 +35,8 @@ def edits1(word):
    inserts    = [a + c + b     for a, b in splits for c in alphabet]
    return set(deletes + transposes + replaces + inserts)
 
-def edits1b(word, distance):
-    return set(i[1] for i in trie.query(word, distance))
+# edits1b(word, distance):
+#    return set(i[1] for i in trie.query(word, distance))
 
 def known_edits2(word):
     return set(e2 for e1 in edits1(word) for e2 in edits1(e1) if e2 in NWORDS)
@@ -45,9 +46,9 @@ def known_edits2b(word):
 
 def known(words): return set(w for w in words if w in NWORDS)
 
-def correct2(word):
-    candidates = known([word]) or known(edits1b(word,2)) or known_edits2b(word) or [word]
-    return max(candidates, key=NWORDS.get)
+#def correct2(word):
+#    candidates = known([word]) or known(edits1b(word,2)) or known_edits2b(word) or [word]
+#    return max(candidates, key=NWORDS.get)
 
 def correct(word):
     candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
@@ -55,7 +56,7 @@ def correct(word):
 
 #Segmentation
 N = 1024908267229
-Pw = Pdist(datafile('count_1w.txt'), N, avoid_long_words)
+Pw = pdist.Pdist(pdist.datafile('count_1w.txt'), N, pdist.avoid_long_words)
 
 def memo(f):
     "Memoize function f."
@@ -87,8 +88,27 @@ def Pwords(words):
   "The Naive Bayes probability of a sequence of words."
   return product(Pw(w) for w in words)
 
-"""
+
 def spelltest(tests, bias=None, verbose=False):
+    import time
+    n, bad, unknown, start = 0, 0, 0, time.clock()
+    if bias:
+        for target in tests: NWORDS[target] += bias
+    for target, wrongs in tests.items():
+        for wrong in wrongs.split():
+            n += 1
+            w = correct(wrong)
+            if w!=target:
+                bad += 1
+                unknown += (target not in NWORDS)
+                if verbose:
+                    print 'correct(%r) => %r (%d); expected %r (%d)' % (
+                        wrong, w, NWORDS[w], target, NWORDS[target])
+    return dict(bad=bad, n=n, bias=bias, pct=int(100. - 100.*bad/n),
+                unknown=unknown, secs=int(time.clock()-start) )
+                
+'''
+def spelltest2(tests, bias=None, verbose=False):
     import time
     n, bad, unknown, start = 0, 0, 0, time.clock()
     if bias:
@@ -105,7 +125,8 @@ def spelltest(tests, bias=None, verbose=False):
                         wrong, w, NWORDS[w], target, NWORDS[target])
     return dict(bad=bad, n=n, bias=bias, pct=int(100. - 100.*bad/n),
                 unknown=unknown, secs=int(time.clock()-start) )
-"""
+'''
+
 
 tests1 = { 'access': 'acess', 'accessing': 'accesing', 'accommodation':
 'accomodation acommodation acomodation', 'account': 'acount', 'address':
@@ -298,5 +319,5 @@ tests2 = {'forbidden': 'forbiden', 'decisions': 'deciscions descisions',
 'biulding', 'required': 'reequired', 'necessitates': 'nessisitates',
 'together': 'togehter', 'profits': 'proffits'}
 
-#if __name__ == '__main__':
-#    print spelltest(tests1)
+if __name__ == '__main__':
+    pass
