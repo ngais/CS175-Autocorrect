@@ -8,6 +8,7 @@ import re, collections
 from bk import *
 import pdist
 import operator
+import nltk, numpy
 
 def words(text): return re.findall('[a-z]+', text.lower())
 
@@ -35,24 +36,51 @@ def edits1(word):
    inserts    = [a + c + b     for a, b in splits for c in alphabet]
    return set(deletes + transposes + replaces + inserts)
 
-# edits1b(word, distance):
-#    return set(i[1] for i in trie.query(word, distance))
+regex = re.compile("\w")
+
+def replace_word(li, word, replace):
+    index = li.index(word)
+    li[index] = replace
+
+
+
+def edits1b(word, distance):
+    return set(i[1] for i in trie.query(word, distance))
 
 def known_edits2(word):
     return set(e2 for e1 in edits1(word) for e2 in edits1(e1) if e2 in NWORDS)
 
-def known_edits2b(word):
-    return set(e2 for e1 in edits1b(word,2) for e2 in edits1b(e1,2) if e2 in NWORDS)
+def known_edits2b(word, distance):
+    return set(e2 for e1 in edits1b(word,distance) for e2 in edits1b(e1,distance) if e2 in NWORDS)
 
 def known(words): return set(w for w in words if w in NWORDS)
 
-#def correct2(word):
-#    candidates = known([word]) or known(edits1b(word,2)) or known_edits2b(word) or [word]
-#    return max(candidates, key=NWORDS.get)
+def correct2(word):
+    candidates = known([word]) or known(edits1b(word,2)) or known_edits2b(word, 2) or [word]
+    return max(candidates, key=NWORDS.get)
 
 def correct(word):
     candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
     return max(candidates, key=NWORDS.get)
+
+
+    
+def split_correct(sentence):
+    "Split words in a sentence to perform individual corrections.  Returns a list with the original word on the left, the corrected word on the right."
+    sentence_list = nltk.word_tokenize(sentence)
+    if len(sentence_list) == 1:
+        sentence_list = segment(sentence)
+    sentence_list2 = [w for w in sentence_list if regex.match(w)]
+    correct_sent = []
+    for w in sentence_list2:
+        corrected = correct2(w.lower())
+        if corrected != w.lower():
+            correct_sent.append((w, corrected))
+        else:
+            correct_sent.append((w, w))
+    return correct_sent
+
+
 
 #Segmentation
 N = 1024908267229
