@@ -25,6 +25,9 @@ NWORDS = train(words(file('big.txt').read()))
 
 alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
+
+
+
 trie = BKTree(levenshtein, NWORDS)
 #print trie.query('thisisatest', 2)
 
@@ -64,12 +67,11 @@ def correct(word):
     return max(candidates, key=NWORDS.get)
 
 
-    
 def split_correct(sentence):
     "Split words in a sentence to perform individual corrections.  Returns a list with the original word on the left, the corrected word on the right."
     sentence_list = nltk.word_tokenize(sentence)
     if len(sentence_list) == 1:
-        sentence_list = segment(sentence)
+        sentence_list = segment(sentence.lower())        
     sentence_list2 = [w for w in sentence_list if regex.match(w)]
     correct_sent = []
     for w in sentence_list2:
@@ -134,7 +136,60 @@ def spelltest(tests, bias=None, verbose=False):
                         wrong, w, NWORDS[w], target, NWORDS[target])
     return dict(bad=bad, n=n, bias=bias, pct=int(100. - 100.*bad/n),
                 unknown=unknown, secs=int(time.clock()-start) )
-                
+          
+""" Tests a given list of sentences with a nested list of the original sentence and the correct sentence."""
+def sentencetest(tests, bias=None, verbose=False):
+    import time
+    import itertools 
+    n, bad, unknown, start = 0, 0, 0, time.clock()
+    corr_sentences = [sentences[1] for sentences in tests]
+    if bias:
+        for sent in corr_sentences:
+            words = nltk.word_tokenize(sent)
+            for target in words: NWORDS[target] += bias
+    for sentences in tests:
+        orig_list = nltk.word_tokenize(sentences[0].lower())
+        correct_list = nltk.word_tokenize(sentences[1].lower())
+        # Because this test function checks individual words, we use the original correct function instead.
+        for orig, target in itertools.izip(orig_list, correct_list):
+            n += 1
+            w = correct(orig)
+            if w != target:
+                bad += 1
+                unknown += (target not in NWORDS)
+                if verbose:
+                    print 'correct(%r) => %r (%d); expected %r (%d)' % (
+                        orig, w, NWORDS[w], target, NWORDS[target])      
+    return dict(bad = bad, n=n, bias=bias, pct = int(100. -100.*bad/n), 
+                unknown = unknown, secs = int(time.clock()-start))
+           
+           
+        
+def sentencetest2(tests, bias=None, verbose=False):
+    import time
+    import itertools 
+    n, bad, unknown, start = 0, 0, 0, time.clock()
+    corr_sentences = [sentences[1] for sentences in tests]
+    if bias:
+        for sent in corr_sentences:
+            words = nltk.word_tokenize(sent)
+            for target in words: NWORDS[target] += bias
+    for sentences in tests:
+        orig_list = nltk.word_tokenize(sentences[0].lower())
+        correct_list = nltk.word_tokenize(sentences[1].lower())
+        for orig, target in itertools.izip(orig_list, correct_list):
+            n += 1
+            w = correct2(orig)
+            if w != target:
+                bad += 1
+                unknown += (target not in NWORDS)
+                if verbose:
+                    print 'correct(%r) => %r (%d); expected %r (%d)' % (
+                        orig, w, NWORDS[w], target, NWORDS[target])      
+    return dict(bad = bad, n=n, bias=bias, pct = int(100. -100.*bad/n), 
+                unknown = unknown, secs = int(time.clock()-start))
+     
+
 '''
 def spelltest2(tests, bias=None, verbose=False):
     import time
@@ -346,6 +401,18 @@ tests2 = {'forbidden': 'forbiden', 'decisions': 'deciscions descisions',
 'graphicaly', 'suited': 'suted', 'variable': 'varible vaiable', 'building':
 'biulding', 'required': 'reequired', 'necessitates': 'nessisitates',
 'together': 'togehter', 'profits': 'proffits'}
+
+''' sentencetest.txt data taken from:
+http://www.american-dyslexia-association.com/free/english/ews143.pdf
+http://www.ghotit.com/2011/01/examples-dyslexia-errors/
+'''
+sentence_check = file('sentencetest.txt').readlines()
+sentence = []
+for string in sentence_check:
+    line = string.strip("\n")
+    s = line.split(",")
+    sentence.append(s)
+
 
 if __name__ == '__main__':
     pass
