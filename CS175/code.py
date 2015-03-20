@@ -8,6 +8,7 @@ import re, collections
 from bk import *
 import pdist
 import operator
+import tokenizer
 import nltk, numpy
 
 def words(text): return re.findall('[a-z]+', text.lower())
@@ -25,11 +26,14 @@ NWORDS = train(words(file('big.txt').read()))
 
 alphabet = 'abcdefghijklmnopqrstuvwxyz'
 
-
-
-
 trie = BKTree(levenshtein, NWORDS)
 #print trie.query('thisisatest', 2)
+
+regex = re.compile("\w")
+
+def replace_word(li, word, replace):
+    index = li.index(word)
+    li[index] = replace
 
 def edits1(word):
    splits     = [(word[:i], word[i:]) for i in range(len(word) + 1)]
@@ -39,39 +43,27 @@ def edits1(word):
    inserts    = [a + c + b     for a, b in splits for c in alphabet]
    return set(deletes + transposes + replaces + inserts)
 
-regex = re.compile("\w")
-
-def replace_word(li, word, replace):
-    index = li.index(word)
-    li[index] = replace
-
-
-
-def edits1b(word, distance):
-    return set(i[1] for i in trie.query(word, distance))
+def edits1b(word): # returns similar results as known_edits2
+    return set(i[1] for i in trie.query(word, 2))
 
 def known_edits2(word):
     return set(e2 for e1 in edits1(word) for e2 in edits1(e1) if e2 in NWORDS)
 
-def known_edits2b(word, distance):
-    return set(e2 for e1 in edits1b(word,distance) for e2 in edits1b(e1,distance) if e2 in NWORDS)
-
 def known(words): return set(w for w in words if w in NWORDS)
 
 def correct2(word):
-    candidates = known([word]) or known(edits1b(word,2)) or known_edits2b(word, 2) or [word]
+    candidates = known([word]) or known(edits1b(word)) or edits1b(word) or [word]
     return max(candidates, key=NWORDS.get)
 
 def correct(word):
     candidates = known([word]) or known(edits1(word)) or known_edits2(word) or [word]
     return max(candidates, key=NWORDS.get)
-
-
+   
 def split_correct(sentence):
     "Split words in a sentence to perform individual corrections.  Returns a list with the original word on the left, the corrected word on the right."
     sentence_list = nltk.word_tokenize(sentence)
     if len(sentence_list) == 1:
-        sentence_list = segment(sentence.lower())        
+        sentence_list = segment(sentence.lower())
     sentence_list2 = [w for w in sentence_list if regex.match(w)]
     correct_sent = []
     for w in sentence_list2:
@@ -81,7 +73,6 @@ def split_correct(sentence):
         else:
             correct_sent.append((w, w))
     return correct_sent
-
 
 
 #Segmentation
@@ -118,25 +109,6 @@ def Pwords(words):
   "The Naive Bayes probability of a sequence of words."
   return product(Pw(w) for w in words)
 
-
-def spelltest(tests, bias=None, verbose=False):
-    import time
-    n, bad, unknown, start = 0, 0, 0, time.clock()
-    if bias:
-        for target in tests: NWORDS[target] += bias
-    for target, wrongs in tests.items():
-        for wrong in wrongs.split():
-            n += 1
-            w = correct(wrong)
-            if w!=target:
-                bad += 1
-                unknown += (target not in NWORDS)
-                if verbose:
-                    print 'correct(%r) => %r (%d); expected %r (%d)' % (
-                        wrong, w, NWORDS[w], target, NWORDS[target])
-    return dict(bad=bad, n=n, bias=bias, pct=int(100. - 100.*bad/n),
-                unknown=unknown, secs=int(time.clock()-start) )
-          
 """ Tests a given list of sentences with a nested list of the original sentence and the correct sentence."""
 def sentencetest(tests, bias=None, verbose=False):
     import time
@@ -162,8 +134,6 @@ def sentencetest(tests, bias=None, verbose=False):
                         orig, w, NWORDS[w], target, NWORDS[target])      
     return dict(bad = bad, n=n, bias=bias, pct = int(100. -100.*bad/n), 
                 unknown = unknown, secs = int(time.clock()-start))
-           
-           
         
 def sentencetest2(tests, bias=None, verbose=False):
     import time
@@ -190,7 +160,25 @@ def sentencetest2(tests, bias=None, verbose=False):
                 unknown = unknown, secs = int(time.clock()-start))
      
 
-'''
+def spelltest(tests, bias=None, verbose=False):
+    import time
+    n, bad, unknown, start = 0, 0, 0, time.clock()
+    if bias:
+        for target in tests: NWORDS[target] += bias
+    for target, wrongs in tests.items():
+        for wrong in wrongs.split():
+            n += 1
+            w = correct(wrong)
+            if w!=target:
+                bad += 1
+                unknown += (target not in NWORDS)
+                if verbose:
+                    print 'correct(%r) => %r (%d); expected %r (%d)' % (
+                        wrong, w, NWORDS[w], target, NWORDS[target])
+    return dict(bad=bad, n=n, bias=bias, pct=int(100. - 100.*bad/n),
+                unknown=unknown, secs=int(time.clock()-start) )
+                
+
 def spelltest2(tests, bias=None, verbose=False):
     import time
     n, bad, unknown, start = 0, 0, 0, time.clock()
@@ -208,7 +196,7 @@ def spelltest2(tests, bias=None, verbose=False):
                         wrong, w, NWORDS[w], target, NWORDS[target])
     return dict(bad=bad, n=n, bias=bias, pct=int(100. - 100.*bad/n),
                 unknown=unknown, secs=int(time.clock()-start) )
-'''
+
 
 
 tests1 = { 'access': 'acess', 'accessing': 'accesing', 'accommodation':
@@ -402,17 +390,10 @@ tests2 = {'forbidden': 'forbiden', 'decisions': 'deciscions descisions',
 'biulding', 'required': 'reequired', 'necessitates': 'nessisitates',
 'together': 'togehter', 'profits': 'proffits'}
 
-''' sentencetest.txt data taken from:
-http://www.american-dyslexia-association.com/free/english/ews143.pdf
-http://www.ghotit.com/2011/01/examples-dyslexia-errors/
-'''
-sentence_check = file('sentencetest.txt').readlines()
-sentence = []
-for string in sentence_check:
-    line = string.strip("\n")
-    s = line.split(",")
-    sentence.append(s)
+wikidat = tokenizer.split_data('wikipedia.dat')
+aspell = tokenizer.split_data('aspell.dat')
+misp = tokenizer.split_data('missp.dat')
 
 
 if __name__ == '__main__':
-    pass
+   pass
